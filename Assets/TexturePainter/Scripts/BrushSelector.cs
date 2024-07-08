@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 public class BrushSelector : MonoBehaviour
 {
-    public GameObject texturePainter; // —сылка на скрипт TexturePainter
+    [SerializeField] private GameObject texturePainter; 
 
     private TexturePainter texturePainterScript;
 

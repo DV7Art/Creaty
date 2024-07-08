@@ -1,4 +1,5 @@
 Shader "Dvart/ColorSelector" {
+
 Properties {
     _Color ("Selected Color", Color) = (1,1,1,0.5)
     _MainTex ("Texture", 2D) = "white" { }

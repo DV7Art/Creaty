@@ -33,12 +33,12 @@ public class GUIManager : MonoBehaviour
 
     public void OnSaveButtonClick()
     {
-        painter.SaveTexture(); 
-    } 
-    
+        painter.SaveTexture();
+    }
+
     public void OnLoadButtonClick()
     {
-        painter.LoadTextureFromFile(); 
+        painter.LoadTextureFromFile();
     }
 
 }

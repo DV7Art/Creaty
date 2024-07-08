@@ -1,28 +1,34 @@
 ﻿using UnityEngine;
-using UnityEngine.UI;
 using System.Collections;
 using System.IO;
 
-
 public class TexturePainter : MonoBehaviour
 {
-    public GameObject brushCursor, brushContainer; //The cursor that overlaps the model and our container for the brushes painted
-    public Camera sceneCamera, canvasCam;  
-    public Sprite cursorPaint; 
-    public RenderTexture canvasTexture; // Render Texture that looks at our Base Texture and the painted brushes
-    public Material baseMaterial; // The material of our base texture (Were we will save the painted texture)
+    public GameObject brushCursor, brushContainer;
+    public Camera sceneCamera, canvasCam;
+    public Sprite cursorPaint;
+    public RenderTexture canvasTexture;
+    public Material baseMaterial;
+    public int initialBrushCount = 100;
 
-
-    float brushSize = 1.0f; //The size of our brush
-    float brushIntensity = 1.0f;
-    Color brushColor; //The selected color
-    int brushCounter = 0, MAX_BRUSH_COUNT = 1000; //To avoid having millions of brushes
-    bool saving = false; //Flag to check if we are saving the texture
+    private float brushSize = 1.0f;
+    private float brushIntensity = 1.0f;
+    private Color brushColor;
+    private int brushCounter = 0, MAX_BRUSH_COUNT = 1000;
+    private bool saving = false;
     private string currentBrush = "TexturePainter-Instances/BrushEntity";
+
+    private BrushPool brushPool;
+
+    void Start()
+    {
+        GameObject brushPrefab = Resources.Load<GameObject>(currentBrush);
+        brushPool = new BrushPool(brushPrefab, initialBrushCount, brushContainer.transform);
+    }
 
     void Update()
     {
-        brushColor = ColorSelector.GetColor();  //Updates our painted color with the selected color
+        brushColor = ColorSelector.GetColor();
         if (Input.GetMouseButton(0))
         {
             DoAction();
@@ -30,32 +36,26 @@ public class TexturePainter : MonoBehaviour
         UpdateBrushCursor();
     }
 
-    //The main action, instantiates a brush or decal entity at the clicked position on the UV map
     void DoAction()
     {
-        if (saving)
-            return;
+        if (saving) return;
+
         Vector3 uvWorldPosition = Vector3.zero;
         if (HitTestUVPosition(ref uvWorldPosition))
         {
-            GameObject brushObj;
-
-
-            brushObj = (GameObject)Instantiate(Resources.Load(currentBrush)); //Paint a brush
-            brushObj.GetComponent<SpriteRenderer>().color = brushColor; //Set the brush color
-
-            brushColor.a = brushSize * 2.0f; // Brushes have alpha to have a merging effect when painted over.
-            brushObj.transform.parent = brushContainer.transform; //Add the brush to our container to be wiped later
-            brushObj.transform.localPosition = uvWorldPosition; //The position of the brush (in the UVMap)
-            brushObj.transform.localScale = Vector3.one * brushSize;//The size of the brush
+            GameObject brushObj = brushPool.GetBrush();
+            brushObj.GetComponent<SpriteRenderer>().color = brushColor;
+            brushColor.a = brushSize * 2.0f;
+            brushObj.transform.localPosition = uvWorldPosition;
+            brushObj.transform.localScale = Vector3.one * brushSize;
         }
-        brushCounter++; //Add to the max brushes
+
+        brushCounter++;
         if (brushCounter >= MAX_BRUSH_COUNT)
-        { 
+        {
             brushCursor.SetActive(false);
             saving = true;
             Invoke("SaveTexture", 0.1f);
-
         }
     }
 
@@ -72,7 +72,7 @@ public class TexturePainter : MonoBehaviour
             brushCursor.SetActive(false);
         }
     }
-    //Returns the position on the texuremap according to a hit in the mesh collider
+
     bool HitTestUVPosition(ref Vector3 uvWorldPosition)
     {
         RaycastHit hit;
@@ -93,72 +93,43 @@ public class TexturePainter : MonoBehaviour
         {
             return false;
         }
-
     }
 
     public void SaveTexture()
     {
         brushCounter = 0;
-        System.DateTime date = System.DateTime.Now;
         RenderTexture.active = canvasTexture;
         Texture2D tex = new Texture2D(canvasTexture.width, canvasTexture.height, TextureFormat.RGB24, false);
         tex.ReadPixels(new Rect(0, 0, canvasTexture.width, canvasTexture.height), 0, 0);
         tex.Apply();
         RenderTexture.active = null;
-        baseMaterial.mainTexture = tex; //Put the painted texture as the base
-        foreach (Transform child in brushContainer.transform)
-        {//Clear brushes
-            Destroy(child.gameObject);
-        }
+        baseMaterial.mainTexture = tex;
+        brushPool.ReturnAllBrushes();
 
-        // Save the texture to file
-        StartCoroutine(SaveTextureToFile(tex));
-
+        StartCoroutine(TextureSaver.SaveTextureToFile(tex, "CanvasTexture.png"));
         Invoke("ShowCursor", 0.1f);
     }
 
     public void LoadTextureFromFile()
     {
-        string filePath = System.IO.Path.Combine(Application.dataPath, "CanvasTexture.png");
-
-        if (File.Exists(filePath))
+        string filePath = Path.Combine(Application.dataPath, "CanvasTexture.png");
+        
+        Texture2D loadedTexture = TextureSaver.LoadTextureFromFile(filePath);
+        if (loadedTexture != null)
         {
-            byte[] fileData = File.ReadAllBytes(filePath);
-            Texture2D texture = new Texture2D(2, 2); 
-
-            if (texture.LoadImage(fileData)) 
-            {
-                baseMaterial.mainTexture = texture; 
-                Debug.Log("Loaded texture from file: " + filePath);
-            }
-            else
-            {
-                Debug.LogError("Failed to load texture from file: " + filePath);
-            }
+            baseMaterial.mainTexture = loadedTexture;
         }
-        else
-        {
-            Debug.LogError("Texture file not found: " + filePath);
-        }
-    }
-
-    //Show again the user cursor (To avoid saving it to the texture)
-    void ShowCursor()
-    {
-        saving = false;
     }
 
     public void SetBrushSize(float newBrushSize)
-    { //Sets the size of the cursor brush or decal
+    {
         brushSize = newBrushSize;
         brushCursor.transform.localScale = Vector3.one * brushSize;
     }
 
     public void SetBrushIntensity(float intensity)
     {
-
         brushIntensity = intensity;
-
         if (brushContainer != null)
         {
             foreach (Transform child in brushContainer.transform)
@@ -175,18 +146,17 @@ public class TexturePainter : MonoBehaviour
 
     public void SetBrush(string brushName)
     {
-        currentBrush = "TexturePainter-Instances/" + brushName; 
+        currentBrush = "TexturePainter-Instances/" + brushName;
+        
+        if (brushPool != null)
+        {
+            GameObject brushPrefab = Resources.Load<GameObject>(currentBrush);
+            brushPool.UpdateBrushPrefab(brushPrefab);
+        }
     }
 
-    IEnumerator SaveTextureToFile(Texture2D savedTexture)
+    void ShowCursor()
     {
-        string fullPath = System.IO.Path.Combine(Application.dataPath, "CanvasTexture.png");
-        var bytes = savedTexture.EncodeToPNG();
-        System.IO.File.WriteAllBytes(fullPath, bytes);
-
-        Debug.Log("<color=orange>Saved Successfully!</color> " + fullPath);
-        yield return null;
+        saving = false;
     }
-
-
 }
