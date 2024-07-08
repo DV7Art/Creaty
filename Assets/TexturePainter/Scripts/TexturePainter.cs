@@ -1,11 +1,4 @@
-﻿/// <summary>
-/// CodeArtist.mx 2015
-/// This is the main class of the project, its in charge of raycasting to a model and place brush prefabs infront of the canvas camera.
-/// If you are interested in saving the painted texture you can use the method at the end and should save it to a file.
-/// </summary>
-
-
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 using System.IO;
@@ -14,8 +7,8 @@ using System.IO;
 public class TexturePainter : MonoBehaviour
 {
     public GameObject brushCursor, brushContainer; //The cursor that overlaps the model and our container for the brushes painted
-    public Camera sceneCamera, canvasCam;  //The camera that looks at the model, and the camera that looks at the canvas.
-    public Sprite cursorPaint; // Cursor for the differen functions 
+    public Camera sceneCamera, canvasCam;  
+    public Sprite cursorPaint; 
     public RenderTexture canvasTexture; // Render Texture that looks at our Base Texture and the painted brushes
     public Material baseMaterial; // The material of our base texture (Were we will save the painted texture)
 
@@ -58,7 +51,7 @@ public class TexturePainter : MonoBehaviour
         }
         brushCounter++; //Add to the max brushes
         if (brushCounter >= MAX_BRUSH_COUNT)
-        { //If we reach the max brushes available, flatten the texture and clear the brushes
+        { 
             brushCursor.SetActive(false);
             saving = true;
             Invoke("SaveTexture", 0.1f);
@@ -91,8 +84,8 @@ public class TexturePainter : MonoBehaviour
             if (meshCollider == null || meshCollider.sharedMesh == null)
                 return false;
             Vector2 pixelUV = new Vector2(hit.textureCoord.x, hit.textureCoord.y);
-            uvWorldPosition.x = pixelUV.x - canvasCam.orthographicSize;//To center the UV on X
-            uvWorldPosition.y = pixelUV.y - canvasCam.orthographicSize;//To center the UV on Y
+            uvWorldPosition.x = pixelUV.x - canvasCam.orthographicSize;
+            uvWorldPosition.y = pixelUV.y - canvasCam.orthographicSize;
             uvWorldPosition.z = 0.0f;
             return true;
         }
@@ -103,7 +96,6 @@ public class TexturePainter : MonoBehaviour
 
     }
 
-    //Sets the base material with a our canvas texture, then removes all our brushes
     public void SaveTexture()
     {
         brushCounter = 0;
@@ -120,7 +112,7 @@ public class TexturePainter : MonoBehaviour
         }
 
         // Save the texture to file
-        //StartCoroutine(SaveTextureToFile(tex));
+        StartCoroutine(SaveTextureToFile(tex));
 
         Invoke("ShowCursor", 0.1f);
     }
@@ -132,11 +124,11 @@ public class TexturePainter : MonoBehaviour
         if (File.Exists(filePath))
         {
             byte[] fileData = File.ReadAllBytes(filePath);
-            Texture2D texture = new Texture2D(2, 2); // Создаем новую текстуру (размеры не важны, они изменятся после загрузки)
+            Texture2D texture = new Texture2D(2, 2); 
 
-            if (texture.LoadImage(fileData)) // Загружаем изображение из файла данных
+            if (texture.LoadImage(fileData)) 
             {
-                baseMaterial.mainTexture = texture; // Присваиваем загруженную текстуру материалу
+                baseMaterial.mainTexture = texture; 
                 Debug.Log("Loaded texture from file: " + filePath);
             }
             else
@@ -183,10 +175,8 @@ public class TexturePainter : MonoBehaviour
 
     public void SetBrush(string brushName)
     {
-        currentBrush = "TexturePainter-Instances/" + brushName; // Устанавливаем кисть на основе имени, переданного из UI
+        currentBrush = "TexturePainter-Instances/" + brushName; 
     }
-
-    ////////////////// OPTIONAL METHODS //////////////////
 
     IEnumerator SaveTextureToFile(Texture2D savedTexture)
     {
